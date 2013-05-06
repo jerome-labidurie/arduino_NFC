@@ -70,6 +70,7 @@ struct FOUND_MESSAGE{
     int type;
     char * format;
     uint8_t * payload;
+    uint8_t payloadLength;	
 };
 
 class NDEF{

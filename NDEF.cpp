@@ -6,8 +6,13 @@
 */
 /**************************************************************************/
 #include "NDEF.h"
+#include <Mifare.h>
 
 NDEF::NDEF(){
+
+
+#define NDEFDEBUG 1
+#define DEBUG 1
     
 }
 
@@ -19,9 +24,22 @@ NDEF::NDEF(){
  * @return     struct FOUND_MESSAGE which contains type, format, and the actual payload
  */
 FOUND_MESSAGE NDEF::decode_message(uint8_t * msg) {
-    int offset = 2;
-    FOUND_MESSAGE m;
 
+    int offset;//offset shall be set depending on card type
+	if( Mifare::cardType == MIFARE_CLASSIC)
+	{
+		offset=2;
+	}
+	else
+	{
+		offset=7;//for ultralight cards
+	}
+    FOUND_MESSAGE m;
+	#ifdef DEBUG
+		Serial.print("header:"); 
+		uint8_t header=*(msg + offset) & 0xFF;
+		Serial.println(header, HEX);
+	#endif
     bool mb = (*(msg + offset) & 0x80) == 0x80;        /* Message Begin */
     bool me = (*(msg + offset) & 0x40) == 0x40;        /* Message End */
     bool cf = (*(msg + offset) & 0x20) == 0x20;        /* Chunk Flag */
@@ -45,6 +63,10 @@ FOUND_MESSAGE NDEF::decode_message(uint8_t * msg) {
     }
         
     int typeLength = *(msg + offset);
+	#ifdef DEBUG
+		Serial.print("typeLength:"); 
+		Serial.println(typeLength, HEX);
+	#endif	
     offset++;
         
     int payloadLength;
@@ -55,12 +77,17 @@ FOUND_MESSAGE NDEF::decode_message(uint8_t * msg) {
     } else {
         offset += 4;
     }
+	#ifdef DEBUG
+		Serial.print("payloadLength:"); 
+		Serial.println(payloadLength, HEX);
+	#endif		
         
     int idLength = 0;
     if (il) {
         idLength = *(msg + offset);
         offset++;
     }
+	
     switch ((int)tnf) {
         case 1:
             //well known record type
@@ -103,23 +130,33 @@ FOUND_MESSAGE NDEF::decode_message(uint8_t * msg) {
             //mime type record
             m.type = NDEF_TYPE_MIME;
             
-            char mimetype [typeLength-2];
-            uint8_t payload [NDEF_BUFFER_SIZE];
-            
+            //char mimetype [typeLength-2];
+			char mimetype [typeLength]; // -2 removed for ultralight cards
+            //uint8_t payload [NDEF_BUFFER_SIZE];
+            uint8_t payload [payloadLength];//adjust buffer size for payload
             memcpy(mimetype, msg+offset, typeLength);
-            memcpy(payload, msg +typeLength +offset, payloadLength - typeLength);
-                
-//            Serial.print("mimetype: "); Serial.println(mimetype);
-//            Serial.print("data: "); Serial.println((char*)payload);
+           // memcpy(payload, msg +typeLength +offset, payloadLength - typeLength);
+			 memcpy(payload, msg +typeLength +offset, payloadLength); // bugfix : payloadLength - typeLength < 0 ????
+			#ifdef DEBUG
+				Serial.print("mimetype: "); Serial.println(mimetype);
+				Serial.print("data:");
+				for (uint8_t i=0; i< payloadLength; i++) {
+					Serial.print(" 0x");Serial.print(payload[i], HEX);
+				}
+				Serial.print("\n");				
+			#endif	                
+
             
             m.format = mimetype;
             m.payload = payload;
+			m.payloadLength=payloadLength;
                 
             break;
         default:
             Serial.println("err");
             break;
-        }   
+        }  
+		
         
     return m;
 }
