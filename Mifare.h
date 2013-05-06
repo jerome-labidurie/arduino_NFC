@@ -47,19 +47,19 @@ class Mifare{
 	boolean SAMConfig(void);
     uint8_t* readTarget(uint16_t timeout = 0);
     
-    boolean readPayload(uint8_t * output , uint8_t lengthLimit);
+    boolean readPayload(uint8_t * output , uint8_t lengthLimit,uint8_t * readlength);
     boolean writePayload(uint8_t * payload, uint8_t length);
     
   private:
     boolean classic_formatForNDEF(void);
     boolean classic_authenticateBlock (uint32_t blockNumber);
     
-    boolean classic_readPayload(uint8_t * output, uint8_t lengthLimit);
+    boolean classic_readPayload(uint8_t * output, uint8_t lengthLimit,uint8_t * readlength);
     boolean classic_writePayload(uint8_t * payload, uint8_t length);
     boolean classic_readMemoryBlock(uint8_t blockaddress, uint8_t * block);
     boolean classic_writeMemoryBlock(uint8_t blockaddress, uint8_t * block);
     
-    boolean ultralight_readPayload(uint8_t * output, uint8_t lengthLimit);
+    boolean ultralight_readPayload(uint8_t * output, uint8_t lengthLimit,uint8_t * readlength);
     boolean ultralight_writePayload(uint8_t * payload, uint8_t length);
     boolean ultralight_readMemoryBlock(uint8_t blockaddress, uint8_t *block);
     boolean ultralight_writeMemoryBlock(uint8_t blockaddress, uint8_t *block);

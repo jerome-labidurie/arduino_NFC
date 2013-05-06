@@ -12,7 +12,10 @@ static byte packetbuffer[PN532_PACKBUFFSIZE] ;
 static uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
 static uint8_t uidLength ;
 
-Mifare::Mifare(){}
+Mifare::Mifare(){
+//#define MIFAREDEBUG 1
+#define DEBUG
+}
 
 
 /**************************************************************************/
@@ -157,7 +160,7 @@ boolean Mifare::classic_formatForNDEF (){
 //get type of card and size, then either classic or ultralight read all the blocks
 //output is a char array buffer to write output into
 
-boolean Mifare::readPayload (uint8_t * output, uint8_t lengthLimit){
+boolean Mifare::readPayload (uint8_t * output, uint8_t lengthLimit,uint8_t * readlength ){
     if (!readTarget())
         return false;
 #ifdef MIFAREDEBUG
@@ -165,10 +168,10 @@ boolean Mifare::readPayload (uint8_t * output, uint8_t lengthLimit){
 #endif
     switch (cardType) {
         case MIFARE_CLASSIC:
-            return classic_readPayload(output, lengthLimit);
+            return classic_readPayload(output, lengthLimit,readlength);
             break;
         case MIFARE_ULTRALIGHT:
-            return ultralight_readPayload(output, lengthLimit);
+            return ultralight_readPayload(output, lengthLimit,readlength);
             break;
         default:
             return false;
@@ -181,20 +184,34 @@ boolean Mifare::readPayload (uint8_t * output, uint8_t lengthLimit){
  reads block 4 - 64
  skips the sector footers
  */
-boolean Mifare::classic_readPayload (uint8_t * output, uint8_t lengthLimit){
+boolean Mifare::classic_readPayload (uint8_t * output, uint8_t lengthLimit,uint8_t * readlength){
     uint8_t block_buffer[16] = {};
     uint8_t position = 0;
     boolean reading = 0;
+	
+	#ifdef DEBUG
+		Serial.print("classic_readPayload:");
+	#endif		
     
     for (uint8_t i = 4; i <lengthLimit/16; i++) {
         if(i%4 <3){
             if(!classic_readMemoryBlock(i, block_buffer))
+			{
+				#ifdef DEBUG
+					Serial.println(position);	
+				#endif				
+				(*readlength)=position;			
                 return false;
+			}
             
             for (uint8_t n = 0; n < 16; n++) {
                 if (block_buffer[n] == STOP_BYTE) {
                     i = 65;
                     n = 17;
+					#ifdef DEBUG
+						Serial.println(position);	
+					#endif						
+					(*readlength)=position;							
                     return true;
                 }else{
                     if(block_buffer[n] != 0)
@@ -207,6 +224,10 @@ boolean Mifare::classic_readPayload (uint8_t * output, uint8_t lengthLimit){
             }
         }
     }
+	#ifdef DEBUG
+		Serial.println(position);
+	#endif		
+	(*readlength)=position;	
     return false;
 }
 
@@ -215,18 +236,30 @@ boolean Mifare::classic_readPayload (uint8_t * output, uint8_t lengthLimit){
  reads a mifare ultralight payload and re-assembles into a byte array
  reads page 4 - 64
  */
-boolean Mifare::ultralight_readPayload (uint8_t * output, uint8_t lengthLimit){
+boolean Mifare::ultralight_readPayload (uint8_t * output, uint8_t lengthLimit,uint8_t * readlength){
     uint8_t block_buffer[4] = {};
     uint8_t position = 0;
-    
+	#ifdef DEBUG
+		Serial.print("ultralight_readPayload:");
+	#endif	    
     for (uint8_t i = 4; i <lengthLimit/4; i++) {
         if(!ultralight_readMemoryBlock(i, block_buffer))
+		{
+			#ifdef DEBUG
+				Serial.println(position);	
+			#endif	
+			(*readlength)=position;
             return false;
+		}
         
         for (uint8_t n = 0; n < 4; n++) {
             if (block_buffer[n] == STOP_BYTE) {
                 i = 65;
                 n = 5;
+				#ifdef DEBUG
+					Serial.println(position);	
+				#endif	
+				(*readlength)=position;
                 return true;
             }else{
                 memcpy(output+position, block_buffer+n, 1);
@@ -234,6 +267,10 @@ boolean Mifare::ultralight_readPayload (uint8_t * output, uint8_t lengthLimit){
             }
         }
     }
+	#ifdef DEBUG
+		Serial.println(position);
+	#endif	
+	(*readlength)=position;
     return false;
 }
 
