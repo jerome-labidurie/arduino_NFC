@@ -15,10 +15,13 @@
 //compiler complains if you don't include this even if you turn off the I2C.h 
 //@TODO: look into how to disable completely
 #include <Wire.h>
+#include <EEPROM.h>
 
 
 //////////////////////////////////////////////
 // Definitions related to BuddiesJewel project
+//#define I2C_MODE    //define wether we use I2C line for daughter board or analog outputs
+#define STORE_EEPROM   //to be used to store color into eeprom
 #define DEBUG
 #define BUDDYLENGTH_ULTRA 48
 #define BUDDYLENGTH_CLASSIC 43
@@ -52,6 +55,7 @@ PN532 * board = new PN532_I2C(IRQ, RESET);
 #define SS 10
 #define MISO 12
 
+
 PN532 * board = new PN532_SPI(SCK, MISO, MOSI, SS);
 
 //end SPI -->
@@ -70,45 +74,71 @@ uint32_t Mifare::cardType = 0; //will get overwritten if it finds a different ca
 uint8_t payload[PAYLOAD_SIZE] = {};
 
 void setup(void) {
-  Serial.begin(115200);
+	uint8_t red=0;
+	uint8_t green=0;
+	uint8_t blue=0; 
+	
+	Serial.begin(115200);
 
-  board->begin();
+	board->begin();
 
-  uint32_t versiondata = board->getFirmwareVersion();
-  if (! versiondata) {
-    Serial.println("err");
-    while (1); // halt
-  }
-  else
-  {
-    Serial.println("Welcome to Buddies World!");  
-  }
-  
-  // Got ok data, print it out!
-  #ifdef DEBUG
+	uint32_t versiondata = board->getFirmwareVersion();
+	if (! versiondata) {
+	Serial.println("err");
+	while (1); // halt
+	}
+	else
+	{
+	Serial.println("Welcome to Buddies World!");  
+	}
+
+	// Got ok data, print it out!
+	#ifdef DEBUG
 	  Serial.print("5");Serial.println((versiondata>>24) & 0xFF, HEX); 
 	  Serial.print("v: "); Serial.println((versiondata>>16) & 0xFF, DEC); 
 	  Serial.println((versiondata>>8) & 0xFF, DEC);
 	  Serial.print("Supports "); Serial.println(versiondata & 0xFF, HEX);
-  #endif
+	#endif
   
 
 
-  if(mifare.SAMConfig()){
-    Serial.println("SAM mode enabled");  
-  }else{
-    Serial.println("SAM mode disabled");
-  }
-  
-  
+	if(mifare.SAMConfig()){
+	Serial.println("SAM mode enabled");  
+	}else{
+	Serial.println("SAM mode disabled");
+	}
 
-   // ----------- BUDDIESJEWEL specific --------
-   // set pins mode
-   pinMode(PIN_RED,   OUTPUT);
-   pinMode(PIN_GREEN, OUTPUT);
-   pinMode(PIN_BLUE,  OUTPUT);
-   setColor (0,0,255);  
-    // ----------- end BUDDIESJEWEL specific -------- 
+
+
+	// ----------- BUDDIESJEWEL specific --------
+
+	#ifdef I2C_MODE  
+		//Initialize I2C line, master mode
+		Wire.begin();
+	#else
+		// set pins mode
+		pinMode(PIN_RED,   OUTPUT);
+		pinMode(PIN_GREEN, OUTPUT);
+		pinMode(PIN_BLUE,  OUTPUT);   
+	#endif
+
+
+
+	#ifdef STORE_EEPROM 
+	   //Read color from eeprom
+	    red=EEPROM.read(0);
+	    green=EEPROM.read(1);
+	    blue=EEPROM.read(2);  
+	#else
+	    red=EEPROM.read(0);
+	    green=EEPROM.read(1);
+	    blue=EEPROM.read(2);     
+	#endif
+	  
+	setColor (red,green,blue);     
+	// ----------- end BUDDIESJEWEL specific -------- 
+
+
   
 }
 
@@ -201,8 +231,28 @@ void loop(void) {
  */
 void setColor(uint8_t red, uint8_t green, uint8_t blue)
 {
-   // anode commune, on inverse les valeurs
-   analogWrite (PIN_RED,   255 - red);
-   analogWrite (PIN_GREEN, 255 - green);
-   analogWrite (PIN_BLUE,  255 - blue);
+
+   #ifdef I2C_MODE 
+	
+	   //Send Data to I2C line
+	   Wire.beginTransmission(4); // Commencer transmission vers l'esclave  #4
+	   Wire.write("x is ");       // Envoi de 5 octets (5 bytes)
+	   Wire.write(red);             // envoi d'un byte/octet (valeur numérique)  
+	   Wire.endTransmission();    // fin transmission   
+   #else
+	   // anode commune, on inverse les valeurs
+	   analogWrite (PIN_RED,   255 - red);
+	   analogWrite (PIN_GREEN, 255 - green);
+	   analogWrite (PIN_BLUE,  255 - blue);
+
+   #endif
+   
+   #ifdef STORE_EEPROM 
+	   //Save data into eeprom
+	   EEPROM.write(0, red);
+	   EEPROM.write(1, green);
+	   EEPROM.write(2, blue);   
+   #endif
+   
+   
 }
